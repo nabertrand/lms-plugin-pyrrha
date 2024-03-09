@@ -297,10 +297,8 @@ sub getPlaylist {
 
     my ( $self, %args ) = @_;
 
-    my $stationToken = $args{'stationToken'};
-
     # make sure they provided a stationToken argument
-    if ( !defined( $stationToken ) ) {
+    if ( !defined( $args{'stationToken'} ) ) {
 
         $self->error( 'A stationToken must be specified.' );
         return Promise::ES6->reject($self->error());
@@ -320,10 +318,10 @@ sub getPlaylist {
         cryptor => $self->{'cryptor'},
         timeout => $self->{'timeout'},
         params => {
-          'stationToken' => $stationToken,
           'includeTrackLength' => JSON::true(),
           'xplatformAdCapable' => JSON::true(),
           'audioAdPodCapable' => JSON::true(),
+          %args,
         }
       );
 

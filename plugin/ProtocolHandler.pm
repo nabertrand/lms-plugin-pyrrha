@@ -195,7 +195,14 @@ sub getNextTrack {
   $client->master->pluginData('station', \%station);
 
   # populate song data
-  my $audio = $track->{'audioUrlMap'}->{'highQuality'};
+  my $audio = exists($track->{'additionalAudioUrl'}) ?
+    {
+      protocol => 'http',
+      audioUrl => $track->{'additionalAudioUrl'},
+      encoding => 'mp3',
+      bitrate  => 128,
+    } :
+    $track->{'audioUrlMap'}->{'highQuality'};
 
   if ($track->{'_isAd'}) {
     #XXX squeezelite fails to connect to aws cloudfront when

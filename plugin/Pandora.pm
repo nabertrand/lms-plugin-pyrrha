@@ -13,6 +13,7 @@ use WebService::Pandora::Partner::AIR;
 use WebService::Pandora::Partner::iOS;
 use Promise::ES6;
 use Plugins::Pyrrha::Utils qw(fetch);
+use Data::Dumper;
 
 my $log = Slim::Utils::Log->addLogCategory({
   category     => 'plugin.pyrrha',
@@ -93,6 +94,8 @@ my @_partners = (
   WebService::Pandora::Partner::iOS->new(),
 );
 my %_useAltPartner = ();
+my $isSubscriber = 0;
+
 sub _getWebService {
   my $attempts = shift || 0;
   my $username = $prefs->get('username');
@@ -107,7 +110,8 @@ sub _getWebService {
   $websvc->login()->then(sub {
   my $user = shift;
 
-  my $idealPartner = $user->{'isSubscriber'} ? 0 : 1;
+  $isSubscriber = !!$user->{'isSubscriber'};
+  my $idealPartner = $isSubscriber ? 0 : 1;
 
   # check to see if we're using the best partner
   if (   $partner != $idealPartner
@@ -217,9 +221,12 @@ sub getPlaylist {
   my $websvc = shift;
 
   # now fetch a play list
-  $websvc->getPlaylist(stationToken => $stationId);
+  my %args = (stationToken => $stationId);
+  $args{'additionalAudioUrl'} = 'HTTP_128_MP3' unless ($isSubscriber);
+  $websvc->getPlaylist(%args);
   })->then(sub {
   my $result = shift;
+  $log->debug(Dumper($result));
 
   return $result->{'items'};
 
