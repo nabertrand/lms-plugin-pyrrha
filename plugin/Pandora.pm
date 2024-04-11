@@ -3,7 +3,17 @@ package Plugins::Pyrrha::Pandora;
 use strict;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(getWebService getStationList getPlaylist getStationArtUrl getAdMetadata registerAd);
+our @EXPORT_OK = qw(
+  getWebService
+  getStationList
+  getGenreStations
+  getGenreList
+  search
+  getPlaylist
+  getStationArtUrl
+  getAdMetadata
+  registerAd
+);
 
 use Slim::Utils::Prefs;
 use Slim::Networking::Async::HTTP;
@@ -15,6 +25,7 @@ use WebService::Pandora::Partner::iOS;
 use Promise::ES6;
 use Plugins::Pyrrha::Utils qw(fetch);
 use Plugins::Pyrrha::Skips;
+use Data::Dumper;
 
 my $log = Slim::Utils::Log->addLogCategory({
   category     => 'plugin.pyrrha',
@@ -324,6 +335,139 @@ sub registerAd {
   $error = $error->{'message'} if ref $error eq 'HASH';
   die $error;
   });
+}
+
+
+sub getGenreList {
+  getGenreStations()->then(sub {
+    my $genreStations = shift;
+    return [ map {
+      {
+        name => $_->{'categoryName'},
+        type => 'link',
+        url  => \&genreStations,
+        passthrough => [{
+          genre => $_->{'categoryName'},
+        }],
+      }
+    } @$genreStations ];
+  });
+}
+
+
+sub genreStations {
+  my ($client, $cb, $params, $args) = @_;
+  $log->debug("fetching stations for genre $args->{'genre'}");
+  getGenreStations()->then(sub {
+    my $genres = shift;
+    my @stations = grep { $_->{'categoryName'} eq $args->{'genre'} } @$genres;
+    $log->debug("Found genre: " . Dumper(@stations));
+    $cb->({ items => [ map {
+      {
+        type        => 'playlist',
+        name        => $_->{'stationName'},
+        on_select   => 'play',
+        url         => \&createStation,
+        passthrough => [{
+          musicToken => $_->{'stationToken'},
+        }]
+      }
+    } @{$stations[0]->{'stations'}} ] });
+  });
+}
+
+
+sub createStation {
+  my ($client, $cb, $params, $args) = @_;
+  getWebService()->then(sub{
+    my $websvc = shift;
+    $websvc->createStation(%$args);
+  })->then(sub {
+    $log->debug("createStation result: " . Dumper(\@_));
+    my $result = shift;
+    my $username = $prefs->get('username');
+    my $usernameDigest = md5_hex($username);
+
+    $cb->({ items => [{
+      name => $result->{'stationName'},
+      play => "pyrrha://$usernameDigest/$result->{'stationId'}.mp3",
+    }]});
+
+  # manage any errors
+  })->catch(sub {
+    $log->debug("createStation error: " . Dumper(\@_));
+    my $error = shift;
+
+    if (ref $error eq 'HASH') {
+      if ($error->{'apiCode'} == 1001) {
+        # auth token expired, clear our cached credentials
+        $log->info('auth token expired, clearing cache');
+        %cache = ();
+      }
+      $error = $error->{'message'}
+    }
+
+    $log->error($error);
+    $cb->({
+      items => [{
+        name => $error,
+        type => 'textarea',
+      }],
+    });
+  });
+}
+
+
+sub getGenreStations {
+  _getCachedPerishable(
+    key => 'genreStations',
+    lifetime => 10,  # rate limit a litte bit
+    refresh => sub {
+      $log->info('fetching genre stations');
+      return _getGenreStations(@_);
+    }
+  )->then(sub {
+    my $genres = shift;
+    #$log->debug("genres: " . Dumper($genres));
+    return $genres;
+  });
+}
+
+sub _getGenreStations {
+  # first, get a websvc
+  getWebService()->then(sub{
+  my $websvc = shift;
+
+  # now fetch a play list
+  $websvc->getGenreStations();
+  })->then(sub {
+  my $result = shift;
+
+  #$log->debug("result:" . Dumper($result));
+  return $result->{'categories'};
+
+  # manage any errors
+  })->catch(sub {
+  my $error = shift;
+
+  if (ref $error eq 'HASH') {
+    if ($error->{'apiCode'} == 1001) {
+      # auth token expired, clear our cached credentials
+      $log->info('auth token expired, clearing cache');
+      %cache = ();
+    }
+    $error = $error->{'message'}
+  }
+
+  die $error;
+
+  });
+
+}
+
+
+sub search {
+
 }
 
 

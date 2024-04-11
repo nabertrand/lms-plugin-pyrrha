@@ -259,7 +259,7 @@ sub search {
     if ( !defined( $searchText ) ) {
 
         $self->error( 'A searchText must be specified.' );
-        return;
+        return Promise::ES6->reject($self->error());
     }
 
     # create the music.search method w/ appropriate params
@@ -276,15 +276,7 @@ sub search {
                                                    timeout => $self->{'timeout'},
                                                    params => {'searchText' => $searchText} );
 
-    my $ret = $method->execute();
-
-    if ( !$ret ) {
-
-        $self->error( $method->error() );
-        return;
-    }
-
-    return $ret;
+    return $method->execute();
 }
 
 sub getPlaylist {
@@ -619,7 +611,7 @@ sub createStation {
         if ( !defined( $musicType ) ) {
 
             $self->error( "A musicType must be specified (either 'song' or 'artist') when supplying a track token." );
-            return;
+            return Promise::ES6->reject($self->error());
         }
 
         $params->{'trackToken'} = $trackToken;
@@ -630,7 +622,7 @@ sub createStation {
     else {
 
         $self->error( "Either musicToken or trackToken must be specified." );
-        return;
+        return Promise::ES6->reject($self->error());
     }
 
     # create the station.createStation method w/ appropriate params
@@ -647,15 +639,7 @@ sub createStation {
                                                    timeout => $self->{'timeout'},
                                                    params => $params );
 
-    my $ret = $method->execute();
-
-    if ( !$ret ) {
-
-        $self->error( $method->error() );
-        return;
-    }
-
-    return $ret;
+    return $method->execute();
 }
 
 sub renameStation {
@@ -872,15 +856,7 @@ sub getGenreStations {
                                                    timeout => $self->{'timeout'},
                                                    params => {} );
 
-    my $ret = $method->execute();
-
-    if ( !$ret ) {
-
-        $self->error( $method->error() );
-        return;
-    }
-
-    return $ret;
+    return $method->execute();
 }
 
 sub getGenreStationsChecksum {

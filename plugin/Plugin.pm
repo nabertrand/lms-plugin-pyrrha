@@ -8,7 +8,7 @@ use base qw(Slim::Plugin::OPMLBased);
 use Digest::MD5 qw(md5_hex);
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
-use Plugins::Pyrrha::Pandora qw(getStationList getStationArtUrl);
+use Plugins::Pyrrha::Pandora qw(getStationList getStationArtUrl getGenreList getGenreStations search);
 
 sub getDisplayName () {
   return 'PLUGIN_PYRRHA_MODULE_NAME';
@@ -25,6 +25,57 @@ my $defaultStationArtUrl;
 
 
 sub handleFeed {
+  my ($client, $callback) = @_;
+
+  my $items = [
+    {
+      name => 'Your Stations',
+      type => 'link',
+      url  => \&stationList,
+    },
+    {
+      name => 'Genre Stations',
+      type => 'link',
+      url  => \&browseGenres,
+    },
+    {
+      name => 'Search',
+      type => 'link',
+      url  => \&search,
+    }
+  ];
+  my %opml = (
+    'type'  => 'opml',
+    'title' => 'Pyrrha',   #XXX
+    'items' => $items,
+  );
+  $callback->(\%opml);
+}
+
+
+sub browseGenres {
+  my ($client, $callback) = @_;
+  getGenreList()->then(sub {
+    my $genres = shift;
+    $callback->({
+      items => $genres,
+    });
+  });
+}
+
+
+sub search {
+  my ($client, $callback) = @_;
+  $callback->({
+    items => [{
+      name => "search",
+      type => "textarea",
+    }]
+  });
+}
+
+
+sub stationList {
   my ($client, $callback) = @_;
 
   my $items = [];
